@@ -1,6 +1,6 @@
 // +build go1.9
 
-package mysql
+package tidb
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	database.Register("mysql", &Mysql{})
+	database.Register("tidb", &Mysql{})
 }
 
 var DefaultMigrationsTable = "schema_migrations"
@@ -117,7 +117,7 @@ func extractCustomQueryParams(c *mysql.Config) (map[string]string, error) {
 }
 
 func urlToMySQLConfig(url string) (*mysql.Config, error) {
-	config, err := mysql.ParseDSN(strings.TrimPrefix(url, "mysql://"))
+	config, err := mysql.ParseDSN(strings.TrimPrefix(url, "tidb://"))
 	if err != nil {
 		return nil, err
 	}
@@ -229,16 +229,26 @@ func (m *Mysql) Lock() error {
 		return database.ErrLocked
 	}
 
+	query := `SET @@tidb_enable_noop_functions = true;`
+	if _, err := m.conn.ExecContext(context.Background(), query); err != nil {
+		return &database.Error{OrigErr: err, Query: []byte(query)}
+	}
+
 	aid, err := database.GenerateAdvisoryLockId(
 		fmt.Sprintf("%s:%s", m.config.DatabaseName, m.config.MigrationsTable))
 	if err != nil {
 		return err
 	}
 
-	query := "SELECT GET_LOCK(?, 10)"
+	query = "SELECT GET_LOCK(?, 10)"
 	var success bool
 	if err := m.conn.QueryRowContext(context.Background(), query, aid).Scan(&success); err != nil {
 		return &database.Error{OrigErr: err, Err: "try lock failed", Query: []byte(query)}
+	}
+
+	query = `SET @@tidb_enable_noop_functions = false;`
+	if _, err := m.conn.ExecContext(context.Background(), query); err != nil {
+		return &database.Error{OrigErr: err, Query: []byte(query)}
 	}
 
 	if success {
@@ -254,14 +264,24 @@ func (m *Mysql) Unlock() error {
 		return nil
 	}
 
+	query := `SET @@tidb_enable_noop_functions = true;`
+	if _, err := m.conn.ExecContext(context.Background(), query); err != nil {
+		return &database.Error{OrigErr: err, Query: []byte(query)}
+	}
+
 	aid, err := database.GenerateAdvisoryLockId(
 		fmt.Sprintf("%s:%s", m.config.DatabaseName, m.config.MigrationsTable))
 	if err != nil {
 		return err
 	}
 
-	query := `SELECT RELEASE_LOCK(?)`
+	query = `SELECT RELEASE_LOCK(?)`
 	if _, err := m.conn.ExecContext(context.Background(), query, aid); err != nil {
+		return &database.Error{OrigErr: err, Query: []byte(query)}
+	}
+
+	query = `SET @@tidb_enable_noop_functions = false;`
+	if _, err := m.conn.ExecContext(context.Background(), query); err != nil {
 		return &database.Error{OrigErr: err, Query: []byte(query)}
 	}
 

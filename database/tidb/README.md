@@ -1,6 +1,6 @@
-# MySQL
+# Tidb
 
-`mysql://user:password@tcp(host:port)/dbname?query`
+`tidb://user:password@tcp(host:port)/dbname?query`
 
 | URL Query  | WithInstance Config | Description |
 |------------|---------------------|-------------|
@@ -28,16 +28,16 @@ import (
     
     _ "github.com/go-sql-driver/mysql"
     "github.com/noprom/migrate"
-    "github.com/noprom/migrate/database/mysql"
+    "github.com/noprom/migrate/database/tidb"
     _ "github.com/noprom/migrate/source/file"
 )
 
 func main() {
     db, _ := sql.Open("mysql", "user:password@tcp(host:port)/dbname?multiStatements=true")
-    driver, _ := mysql.WithInstance(db, &mysql.Config{})
+    driver, _ := tidb.WithInstance(db, &tidb.Config{})
     m, _ := migrate.NewWithDatabaseInstance(
         "file:///migrations",
-        "mysql", 
+        "tidb",
         driver,
     )
     

@@ -18,8 +18,8 @@ import (
 )
 
 import (
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/noprom/migrate/v4"
+	"github.com/noprom/migrate/v4/database"
 )
 
 func init() {
